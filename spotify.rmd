@@ -1,0 +1,216 @@
+---
+title: "Spotify Song Predictions"
+author: "Kyle Vu"
+date: "7/14/2018"
+output: html_document
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# load libraries
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(ggthemes)
+library(knitr)
+#devtools::install_github("kassambara/ggcorrplot")
+library(ggcorrplot)
+library(gridExtra)
+library(grid)
+```
+
+```{r}
+setwd("~/Desktop/spotifyProject")
+
+# load dataset
+like_spotify <- read_csv('spotifyLike.csv') %>%
+  rename(title = `0`, artist = `0_1`) %>%
+  mutate(duration_sec = duration_ms / 1000,
+         like = as.factor(1)) %>%
+  select(-c(X1, analysis_url, id, track_href, type, uri, duration_ms))
+like_spotify <- like_spotify[order(like_spotify$artist, like_spotify$title), ]
+
+dislike_spotify <- read_csv('spotifydisLike.csv') %>%
+  rename(title = `0`, artist = `0_1`) %>%
+  mutate(duration_sec = duration_ms / 1000,
+         like = as.factor(0)) %>%
+  select(-c(X1, analysis_url, id, track_href, type, uri, duration_ms))
+dislike_spotify <- dislike_spotify[order(dislike_spotify$artist, dislike_spotify$title), ]
+
+spotify <- rbind(like_spotify, dislike_spotify)
+write.csv(spotify, "bigPlaylist.csv")
+
+# guin_spotify <- read_csv('spotifyGuin.csv') %>%
+#   rename(title = `0`, artist = `0_1`) %>%
+#   mutate(duration_sec = duration_ms / 1000) %>%
+#   select(-c(X1, analysis_url, id, track_href, type, uri, duration_ms))
+# guin_spotify <- guin_spotify[order(guin_spotify$artist, guin_spotify$title),]
+
+# variable glossary
+# https://developer.spotify.com/documentation/web-api/reference/tracks/get-audio-features/
+```
+
+```{r}
+# cool...but exclude from faceted plot maybe?
+# I like not (sad) very danceable tracks
+# ggplot(data = spotify,
+#        mapping = aes(x = danceability, y = valence, col = like)) +
+#   geom_point(alpha = 0.5) +
+#   geom_vline(aes(xintercept = 0.5)) +
+#   geom_hline(aes(yintercept = 0.5))
+```
+
+```{r}
+music_var <- spotify[, 3:16] %>%
+  mutate(like = as.numeric(like))
+corr <- round(cor(music_var), 2)
+
+# correlogram!
+ggcorrplot(corr,
+           type = "upper",
+           lab = TRUE,
+           lab_size = 2,
+           colors = c("#2274A5", "white", "#D90368"),
+           title = "Musical Matrix: A Correlogram of Playlist Features",
+           legend.title = "Correlation",
+           outline.color = "black")
+```
+
+```{r}
+seb <- spotify %>%
+  filter(title == 'Mia & Sebastian’s Theme - From "La La Land" Soundtrack')
+```
+
+```{r}
+# more likely to enjoy low-energy, highly acoustic tracks
+plot1 <- ggplot(data = spotify,
+                mapping = aes(y = acousticness, x = energy, col = like)) +
+                #geom_point(alpha = 0.45, show.legend = FALSE) +
+                geom_jitter(alpha = 0.4, show.legend = FALSE) +
+                scale_color_brewer(palette = "Set1") +
+                geom_point(data = seb,
+                           col = "purple3") +
+                geom_vline(aes(xintercept = 0.5)) +
+                geom_hline(aes(yintercept = 0.5)) +
+                labs(x = NULL) +
+                theme_minimal(base_family = "Avenir")
+
+# i like (sad?) low energy tracks
+plot2 <- ggplot(data = spotify,
+                mapping = aes(y = valence, x = energy, col = like)) +
+                #geom_point(alpha = 0.45, show.legend = FALSE) +
+                geom_jitter(alpha = 0.4, show.legend = FALSE) +
+                scale_color_brewer(palette = "Set1") +
+                geom_point(data = seb,
+                           col = "purple3") +
+                geom_vline(aes(xintercept = 0.5)) +
+                geom_hline(aes(yintercept = 0.5)) +
+                labs(x = NULL) +
+                theme_minimal(base_family = "Avenir")
+
+# whoa...weird
+plot3 <- ggplot(data = spotify,
+                mapping = aes(y = loudness, x = energy, col = like)) +
+                geom_jitter(alpha = 0.4, show.legend = FALSE) +
+                #geom_point(alpha = 0.45) +
+                scale_color_brewer(palette = "Set1") +
+                geom_point(data = seb,
+                           col = "purple3") +
+                geom_vline(aes(xintercept = 0.5)) +
+                labs(col = "Like/Dislike") +
+                theme_minimal(base_family = "Avenir") +
+                theme(legend.position = "none")
+```
+
+```{r}
+# go back and find way to label this grob?
+# format the grob to optimize legend location
+# get_legend <- function(myggplot) {
+#     tmp <- ggplot_gtable(ggplot_build(myggplot))
+#     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+#     legend <- tmp$grobs[[leg]]
+#     return(legend)
+#     }
+# legend <- get_legend(plot3)
+
+# custom_theme <- gridExtra::ttheme_default(
+#   base_family = "Avenir"
+# )
+
+top_label <- grid.text("Exploring My Spotify Musical Preferences",
+                       gp = gpar(fontfamily = "Avenir"))
+caption <- grid.text("Red points are\n tracks that I like,\n blue points ones\n I dislike.\n\n We can\n observe that I'm\n more likely to\n enjoy mellow\n songs that match\n my disposition.",
+                     gp = gpar(fontfamily = "Avenir"))
+
+grid.arrange(plot1, plot2, plot3,
+             ncol = 1,
+             top = top_label,
+             right = caption)
+```
+
+```{r}
+# consider getting rid of these...not particularly elucidating w/o dislikes
+# plot4 <- ggplot(data = guin_spotify,
+#                 mapping = aes(y = acousticness, x = energy)) +
+#                 geom_point(alpha = 0.45, show.legend = FALSE) +
+#                 scale_color_brewer(palette = "Set1") +
+#                 geom_vline(aes(xintercept = 0.5)) +
+#                 geom_hline(aes(yintercept = 0.5)) +
+#                 labs(x = NULL) +
+#                 theme_minimal(base_family = "Avenir")
+#
+# plot5 <- ggplot(data = guin_spotify,
+#                 mapping = aes(y = valence, x = energy)) +
+#                 geom_point(alpha = 0.45, show.legend = FALSE) +
+#                 scale_color_brewer(palette = "Set1") +
+#                 geom_vline(aes(xintercept = 0.5)) +
+#                 geom_hline(aes(yintercept = 0.5)) +
+#                 labs(x = NULL) +
+#                 theme_minimal(base_family = "Avenir")
+#
+# plot6 <- ggplot(data = guin_spotify,
+#                 mapping = aes(y = loudness, x = energy)) +
+#                 geom_point(alpha = 0.45) +
+#                 scale_color_brewer(palette = "Set1") +
+#                 geom_vline(aes(xintercept = 0.5)) +
+#                 labs(col = "Like/Dislike") +
+#                 theme_minimal(base_family = "Avenir") +
+#                 theme(legend.position = "none")
+#
+# grid.arrange(plot4, plot5, plot6,
+#              ncol = 1)
+```
+
+```{r}
+# get rid of these
+# # eh
+# ggplot(data = spotify,
+#        mapping = aes(x = energy, y = instrumentalness, col = like)) +
+#   geom_point(alpha = 0.5) +
+#   geom_vline(aes(xintercept = 0.5)) +
+#   geom_hline(aes(yintercept = 0.5))
+#
+# # eh again
+# ggplot(data = spotify,
+#        mapping = aes(x = acousticness, y = instrumentalness, col = like)) +
+#   geom_point(alpha = 0.5) +
+#   geom_vline(aes(xintercept = 0.5)) +
+#   geom_hline(aes(yintercept = 0.5))
+```
+
+```{r}
+# # not happening lol
+# # attempt PCA visualization
+# spotify_indep <- spotify[, 3:15]
+# pc <- prcomp(spotify_indep, scale. = TRUE)
+# kable(pc$rotation)
+#
+# # nasty lol
+# ggbiplot(pc, scale = 1) +
+#   theme_minimal()
+```
