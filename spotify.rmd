@@ -4,7 +4,7 @@ author: "Kyle Vu"
 date: "7/14/2018"
 output: html_document
 editor_options:
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE, message=FALSE}
@@ -45,8 +45,12 @@ dislike_spotify <- dislike_spotify[order(dislike_spotify$artist, dislike_spotify
 spotify <- rbind(like_spotify, dislike_spotify)
 write.csv(spotify, "bigPlaylist.csv")
 
-# variable glossary
-# https://developer.spotify.com/documentation/web-api/reference/tracks/get-audio-features/
+# load in Guin's dataset
+guin <- read_csv('spotifyGuin.csv') %>%
+  rename(title = `0`, artist = `0_1`) %>%
+  mutate(duration_sec = duration_ms / 1000) %>%
+  select(-c(X1, analysis_url, id, track_href, type, uri, duration_ms))
+guin <- guin[order(guin$artist, guin$title), ]
 ```
 
 ```{r}
@@ -120,3 +124,72 @@ grid.arrange(plot1, plot2, plot3,
              right = caption)
 ```
 
+```{r}
+shared <- guin %>%
+  filter(title %in% like_spotify$title)
+guin_unique <- guin %>%
+  filter(!(title %in% shared$title))
+my_unique <- like_spotify %>%
+  filter(!(title %in% shared$title))
+```
+
+```{r}
+plot4 <- ggplot(data = shared,
+                mapping = aes(y = acousticness, x = energy)) +
+                geom_jitter(show.legend = FALSE, col = "#FF8C42") +
+                geom_jitter(data = guin_unique, 
+                            alpha = 0.4, 
+                            show.legend = FALSE,
+                            col = "darkolivegreen4") +
+                geom_jitter(data = my_unique,
+                            alpha = 0.4, 
+                            show.legend = FALSE,
+                            col = 'navyblue') +
+                geom_vline(aes(xintercept = 0.5)) +
+                geom_hline(aes(yintercept = 0.5)) +
+                labs(x = NULL) +
+                theme_minimal(base_family = "Avenir")
+
+plot5 <- ggplot(data = shared,
+                mapping = aes(y = valence, x = energy)) +
+                geom_jitter(show.legend = FALSE, col = "#FF8C42") +
+                geom_jitter(data = guin_unique, 
+                            alpha = 0.4, 
+                            show.legend = FALSE,
+                            col = "darkolivegreen4") +
+                geom_jitter(data = my_unique,
+                            alpha = 0.4, 
+                            show.legend = FALSE,
+                            col = 'navyblue') +
+                geom_vline(aes(xintercept = 0.5)) +
+                geom_hline(aes(yintercept = 0.5)) +
+                labs(x = NULL) +
+                theme_minimal(base_family = "Avenir")
+
+plot6 <- ggplot(data = my_unique,
+                mapping = aes(y = loudness, x = energy)) +
+                geom_jitter(alpha = 0.25, 
+                            show.legend = FALSE,
+                            col = 'navyblue') +
+                geom_jitter(data = shared, show.legend = FALSE, col = "#FF8C42") +
+                geom_jitter(data = guin_unique,
+                            alpha = 0.25, 
+                            show.legend = FALSE,
+                            col = "darkolivegreen4") +
+                geom_vline(aes(xintercept = 0.5)) +
+                labs(col = "Like/Dislike") +
+                theme_minimal(base_family = "Avenir") +
+                theme(legend.position = "none")
+```
+
+```{r}
+top_label2 <- grid.text("An Ear for an Ear: Comparison of Peer Music Taste",
+                        gp = gpar(fontfamily = "Avenir"))
+caption2 <- grid.text("Points in green map\n tracks that Guin enjoys,\n navy points ones \nthat I liked. \n\nOrange points are \nsongs that we \nmutually saved.\n\n Apparently, we're \nboth big fans \nof Frank Ocean \nand Tame Impala.",
+                     gp = gpar(fontfamily = "Avenir"))
+
+grid.arrange(plot4, plot5, plot6,
+             ncol = 1,
+             top = top_label2,
+             right = caption2)
+```

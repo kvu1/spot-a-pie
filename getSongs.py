@@ -20,12 +20,17 @@ def main():
     my_name = input("Enter your Spotify username:")
     like_id = input("Enter the ID of the playlist containing songs you like:")
     dislike_id = input("Enter the ID of the playlist containing songs you dislike:")
+    friend_id = input("Enter the ID of a friend's playlist:")
 
     like_playlist = get_playlist_tracks(my_name, like_id)
     like_frame = make_song_frame(like_playlist)
     like_frame.to_csv("spotifyLike.csv")
 
     dislike_playlist = get_playlist_tracks(my_name, dislike_id)
+    dislike_frame = make_song_frame(dislike_playlist)
+    dislike_frame.to_csv("spotifyDislike.csv")
+
+    guin_playlist = get_playlist_tracks(my_name, friend_id)
     dislike_frame = make_song_frame(dislike_playlist)
     dislike_frame.to_csv("spotifyDislike.csv")
 
